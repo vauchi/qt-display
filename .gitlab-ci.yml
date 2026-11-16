@@ -6,7 +6,7 @@ include:
   - template: Security/Secret-Detection.gitlab-ci.yml
   - project: 'vauchi/scripts'
     # Immutable SHA carrying the cppcheck template (private#1262).
-    ref: 5cee77a4e2783af6d989ed2b38d6dd1714665455
+    ref: 241b058b3127118f71efd9d15ce767545754f26f
     file:
       - '/ci-templates/design-drift.yml'
       - '/ci-templates/parser-parity.yml'
@@ -21,7 +21,7 @@ include:
       - '/ci-templates/cppcheck.yml'
 
 variables:
-  VAUCHI_SCRIPTS_REF: "5cee77a4e2783af6d989ed2b38d6dd1714665455"
+  VAUCHI_SCRIPTS_REF: "241b058b3127118f71efd9d15ce767545754f26f"
   SAST_EXCLUDED_PATHS: "build/, vauchi-core/"
   SECRET_DETECTION_EXCLUDED_PATHS: "build/, vauchi-core/"
   SAST_ANALYZER_IMAGE_TAG: "5"
@@ -583,7 +583,7 @@ check:pictogram-copies-current:
 lint:domain-calls:
   extends: .domain-calls-job
   variables:
-    VAUCHI_SCRIPTS_REF: "5cee77a4e2783af6d989ed2b38d6dd1714665455"
+    VAUCHI_SCRIPTS_REF: "241b058b3127118f71efd9d15ce767545754f26f"
 
 # Advisory cppcheck scan (private#1262): warning/performance/portability
 # over the C++ display sources. windows-hw joins when its first C++ port
