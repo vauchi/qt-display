@@ -10,7 +10,6 @@
 #include "../src/platform/deeplink.h"
 #include <QCoreApplication>
 #include <QEventLoop>
-#include <QFile>
 #include <QTimer>
 #include <cassert>
 #include <cstdio>
@@ -35,7 +34,8 @@ static void test_a_second_launch_hands_its_links_to_the_running_one() {
     const QString name = QStringLiteral("vauchi-deep-link-test-%1")
                              .arg(QCoreApplication::applicationPid());
     vauchi::DeepLinkRelay running(name);
-    assert(running.listen());
+    const bool listening = running.listen();
+    assert(listening);
 
     QStringList received;
     QEventLoop loop;
@@ -49,7 +49,8 @@ static void test_a_second_launch_hands_its_links_to_the_running_one() {
     vauchi::DeepLinkRelay second(name);
     const QStringList links{QStringLiteral("vauchi://exchange?pk=AAAA&n=BBBB"),
                             QStringLiteral("vauchi://contact/xyz")};
-    assert(second.handOff(links));
+    const bool handedOff = second.handOff(links);
+    assert(handedOff);
     loop.exec();
 
     assert(received == links);
@@ -59,7 +60,9 @@ static void test_a_second_launch_hands_its_links_to_the_running_one() {
 static void test_with_no_running_instance_the_launch_keeps_its_links() {
     vauchi::DeepLinkRelay alone(QStringLiteral("vauchi-deep-link-test-none-%1")
                                     .arg(QCoreApplication::applicationPid()));
-    assert(!alone.handOff({QStringLiteral("vauchi://exchange?pk=AAAA&n=BBBB")}));
+    const bool handedOff =
+        alone.handOff({QStringLiteral("vauchi://exchange?pk=AAAA&n=BBBB")});
+    assert(!handedOff);
     printf("  PASS: with_no_running_instance_the_launch_keeps_its_links\n");
 }
 
