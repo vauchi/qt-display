@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 /// The vauchi.app/x landing page's "Open in Vauchi" button and every shared
-/// `vauchi://` link must reach the installed app (vauchi/private#650): the
-/// desktop entry registers the scheme, only vauchi:// arguments go to Core,
-/// and a second launch hands its link to the running instance instead of
-/// opening the same data twice.
+/// `vauchi://` link must reach the installed app (vauchi/private#650): only
+/// vauchi:// arguments go to Core, and a second launch hands its link to the
+/// running instance instead of opening the same data twice. The app's
+/// desktop entry registers the scheme (linux-app).
 
 #include "../src/platform/deeplink.h"
 #include <QCoreApplication>
@@ -14,25 +14,6 @@
 #include <QTimer>
 #include <cassert>
 #include <cstdio>
-
-static QString desktopEntryValue(const QString &key) {
-    QFile file(QStringLiteral(VAUCHI_DESKTOP_ENTRY));
-    const bool opened = file.open(QIODevice::ReadOnly | QIODevice::Text);
-    assert(opened);
-    const QStringList lines = QString::fromUtf8(file.readAll()).split('\n');
-    for (const QString &line : lines) {
-        if (line.startsWith(key + '=')) return line.mid(key.size() + 1);
-    }
-    return QString();
-}
-
-static void test_desktop_entry_registers_the_scheme() {
-    assert(desktopEntryValue(QStringLiteral("MimeType"))
-           == QStringLiteral("x-scheme-handler/vauchi;"));
-    assert(desktopEntryValue(QStringLiteral("Exec"))
-           == QStringLiteral("qvauchi %u"));
-    printf("  PASS: desktop_entry_registers_the_scheme\n");
-}
 
 static void test_only_vauchi_links_are_passed_to_core() {
     const QStringList args{
@@ -85,7 +66,6 @@ static void test_with_no_running_instance_the_launch_keeps_its_links() {
 int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
     printf("deep_link_test\n");
-    test_desktop_entry_registers_the_scheme();
     test_only_vauchi_links_are_passed_to_core();
     test_a_second_launch_hands_its_links_to_the_running_one();
     test_with_no_running_instance_the_launch_keeps_its_links();

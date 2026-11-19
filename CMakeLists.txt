@@ -28,18 +28,12 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Core Network Concurrent)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(QRENCODE REQUIRED libqrencode)
 
-# --- Optional hardware backends ---
-find_package(Qt6 QUIET COMPONENTS Multimedia MultimediaWidgets)
-find_package(Qt6 QUIET COMPONENTS Bluetooth)
 find_package(Qt6 QUIET COMPONENTS DBus)
-pkg_check_modules(ZBAR QUIET zbar)
-pkg_check_modules(PCSCLITE QUIET libpcsclite)
 
 # The display shell behind the C ABI of include/qt_display.h (ADR-078
 # step 2.2, D1 B): the renderer sources and nothing of the engine. The
-# Rust crate in qt-display/ builds this target alone, without Core's C
-# ABI, which is why the cabi lookup below is skipped for it.
-option(QT_DISPLAY_ONLY "Build only the qt_display library (no qvauchi)" OFF)
+# Rust crate in qt-display/ builds this target alone. Nothing in this
+# repository links Core: the apps assemble the engine (private#1029).
 set(QT_DISPLAY_SOURCES
     src/display_abi.cpp
     src/coreui/displayhost.cpp
@@ -281,7 +275,7 @@ endforeach()
 endif()
 
 # Catalog and fixture renders on the library the apps assemble, for VRT and
-# test:screen-catalog without the legacy qvauchi or Core (private#1029).
+# test:screen-catalog, without Core (private#1029).
 add_executable(qt_display_render tools/qt_display_render.cpp src/coreui/screencatalog.cpp)
 target_include_directories(qt_display_render PRIVATE src)
 target_link_libraries(qt_display_render PRIVATE qt_display)
@@ -298,130 +292,13 @@ add_test(NAME display_render_catalog_smoke
         -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/display_render_catalog_smoke
         -P ${CMAKE_SOURCE_DIR}/tests/render_catalog_smoke.cmake)
 
-if(QT_DISPLAY_ONLY)
-    return()
-endif()
-
-# vauchi-cabi shared library
-set(VAUCHI_CABI_DIR "${CMAKE_SOURCE_DIR}/../core/target/debug" CACHE PATH "Path to vauchi-cabi build output")
-set(VAUCHI_CABI_INCLUDE "${CMAKE_SOURCE_DIR}/../core/vauchi-cabi/include" CACHE PATH "Path to vauchi-cabi headers")
-find_library(VAUCHI_CABI vauchi_cabi PATHS ${VAUCHI_CABI_DIR} REQUIRED)
-
-# Core sources
-set(QVAUCHI_SOURCES
-    src/main.cpp
-    src/app.cpp
-    src/platform/deeplink.cpp
-    src/coreui/presentationstate.cpp
-    src/coreui/presentationcontroller.cpp
-    src/coreui/presentationcontroller_effects.cpp
-    src/coreui/presentationeffectpayload.cpp
-    src/coreui/presentationaccessibility.cpp
-    src/coreui/presentationsurface.cpp
-    src/coreui/presentationsurface_list.cpp
-    src/coreui/presentationsurface_avatar.cpp
-    src/coreui/presentationsurface_nodes.cpp
-    src/coreui/presentationsurface_update.cpp
-    src/coreui/presentationsurface_qr.cpp
-    src/coreui/thememanager.cpp
-    src/coreui/thememanager_prepared.cpp
-    src/coreui/screencatalog.cpp
-    src/rendercatalog.cpp
-    src/coreui/navigationicons.cpp
-    src/coreui/navigationsidebar.cpp
-    src/platform/systemtray.cpp
-    src/platform/menubar.cpp
-    src/platform/filepicker.cpp
-    src/platform/hardwarebackend.cpp
-    src/platform/directsendworker.cpp
-    src/platform/screencaptureprotection.cpp
-    resources/resources.qrc
-)
-
-set(QVAUCHI_LIBS Qt6::Widgets Qt6::Core Qt6::Network Qt6::Concurrent ${VAUCHI_CABI} ${QRENCODE_LIBRARIES})
-set(QVAUCHI_INCLUDES include ${QRENCODE_INCLUDE_DIRS} ${VAUCHI_CABI_INCLUDE} ${VAUCHI_TOKENS_INCLUDE})
-set(QVAUCHI_DEFINES "")
-
-# Camera backend (Qt Multimedia + ZBar)
-if(Qt6Multimedia_FOUND AND Qt6MultimediaWidgets_FOUND AND ZBAR_FOUND)
-    message(STATUS "Camera backend: ENABLED (Qt Multimedia + ZBar)")
-    list(APPEND QVAUCHI_SOURCES src/platform/camerabackend.cpp)
-    list(APPEND QVAUCHI_LIBS Qt6::Multimedia Qt6::MultimediaWidgets ${ZBAR_LIBRARIES})
-    list(APPEND QVAUCHI_INCLUDES ${ZBAR_INCLUDE_DIRS})
-    list(APPEND QVAUCHI_DEFINES VAUCHI_HAS_CAMERA)
-else()
-    message(STATUS "Camera backend: DISABLED (needs Qt6::Multimedia + zbar)")
-endif()
-
-# BLE backend (Qt Bluetooth + BlueZ D-Bus advertising)
-if(Qt6Bluetooth_FOUND)
-    message(STATUS "BLE backend: ENABLED (Qt Bluetooth + BlueZ D-Bus advertising)")
-    list(APPEND QVAUCHI_SOURCES src/platform/blebackend.cpp src/platform/bleadvertiser.cpp)
-    list(APPEND QVAUCHI_LIBS Qt6::Bluetooth Qt6::DBus)
-    list(APPEND QVAUCHI_DEFINES VAUCHI_HAS_BLUETOOTH)
-else()
-    message(STATUS "BLE backend: DISABLED (needs Qt6::Bluetooth / qt6-connectivity)")
-endif()
-
-# Audio backend (Qt Multimedia — ultrasonic proximity)
-if(Qt6Multimedia_FOUND)
-    message(STATUS "Audio backend: ENABLED (Qt Multimedia)")
-    list(APPEND QVAUCHI_SOURCES src/platform/audiobackend.cpp)
-    list(APPEND QVAUCHI_LIBS Qt6::Multimedia)
-    list(APPEND QVAUCHI_DEFINES VAUCHI_HAS_AUDIO)
-else()
-    message(STATUS "Audio backend: DISABLED (needs Qt6::Multimedia)")
-endif()
-
-# NFC backend (PC/SC via pcsclite — USB NFC readers)
-if(PCSCLITE_FOUND)
-    message(STATUS "NFC backend: ENABLED (pcsclite)")
-    list(APPEND QVAUCHI_SOURCES src/platform/nfcbackend.cpp)
-    list(APPEND QVAUCHI_LIBS ${PCSCLITE_LIBRARIES})
-    list(APPEND QVAUCHI_INCLUDES ${PCSCLITE_INCLUDE_DIRS})
-    list(APPEND QVAUCHI_DEFINES VAUCHI_HAS_NFC)
-else()
-    message(STATUS "NFC backend: DISABLED (needs pcsclite)")
-endif()
-
-add_executable(qvauchi ${QVAUCHI_SOURCES})
-target_include_directories(qvauchi PRIVATE ${QVAUCHI_INCLUDES})
-target_link_directories(qvauchi PRIVATE ${QRENCODE_LIBRARY_DIRS} ${ZBAR_LIBRARY_DIRS})
-target_link_libraries(qvauchi PRIVATE ${QVAUCHI_LIBS})
-target_compile_definitions(qvauchi PRIVATE ${QVAUCHI_DEFINES})
-add_custom_command(
-    TARGET qvauchi POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E rm -f
-            "${CMAKE_CURRENT_BINARY_DIR}/vauchi-qt"
-    COMMAND ${CMAKE_COMMAND} -E create_symlink
-            "$<TARGET_FILE_NAME:qvauchi>"
-            "${CMAKE_CURRENT_BINARY_DIR}/vauchi-qt")
-
-install(TARGETS qvauchi DESTINATION bin)
-install(FILES packaging/vauchi-qt.desktop DESTINATION share/applications)
-
-# --- Tests ---
-enable_testing()
-
-# Smoke test: CABI linkage and basic API calls
-add_executable(smoke_test tests/smoke_test.cpp)
-target_include_directories(smoke_test PRIVATE include)
-target_link_libraries(smoke_test PRIVATE ${VAUCHI_CABI})
-add_test(NAME smoke_test COMMAND smoke_test)
-
-# AppEngine integration test: persistent storage, navigation, actions
-add_executable(app_engine_test tests/app_engine_test.cpp)
-target_include_directories(app_engine_test PRIVATE include)
-target_link_libraries(app_engine_test PRIVATE ${VAUCHI_CABI})
-add_test(NAME app_engine_test COMMAND app_engine_test)
-
-# Core presentation reducer state: multi-surface retention and active context.
+# Presentation reducer state: multi-surface retention and active context.
+# The fixture corpus is replayed by contract_replay_test below.
 add_executable(presentation_state_test
     tests/presentation_state_test.cpp
     src/coreui/presentationstate.cpp)
 target_include_directories(presentation_state_test PRIVATE src)
-target_include_directories(presentation_state_test PRIVATE ${VAUCHI_CABI_INCLUDE})
-target_link_libraries(presentation_state_test PRIVATE Qt6::Core ${VAUCHI_CABI})
+target_link_libraries(presentation_state_test PRIVATE Qt6::Core)
 add_test(NAME presentation_state_test COMMAND presentation_state_test)
 
 # Contract replay (ADR-078 D-11). Not a ctest case: it takes the fixtures of
@@ -493,48 +370,10 @@ target_link_libraries(presentation_qr_placement_test PRIVATE
 add_test(NAME presentation_qr_placement_test
     COMMAND presentation_qr_placement_test)
 
-set(PRESENTATION_CONTROLLER_TEST_SOURCES
-    src/coreui/presentationcontroller.cpp
-    src/coreui/presentationcontroller_effects.cpp
-    src/coreui/presentationeffectpayload.cpp
-    src/coreui/navigationicons.cpp
-    src/coreui/navigationsidebar.cpp
-    src/coreui/presentationstate.cpp
-    src/coreui/presentationaccessibility.cpp
-    src/coreui/presentationsurface.cpp
-    src/coreui/presentationsurface_list.cpp
-    src/coreui/presentationsurface_avatar.cpp
-    src/coreui/presentationsurface_nodes.cpp
-    src/coreui/presentationsurface_update.cpp
-    src/coreui/presentationsurface_qr.cpp
-    src/platform/hardwarebackend.cpp
-    src/platform/directsendworker.cpp)
-add_executable(presentation_controller_test tests/presentation_controller_test.cpp
-    ${PRESENTATION_CONTROLLER_TEST_SOURCES})
-add_executable(presentation_copy_test tests/presentation_copy_test.cpp
-    ${PRESENTATION_CONTROLLER_TEST_SOURCES})
-foreach(controller_target presentation_controller_test presentation_copy_test)
-target_sources(${controller_target} PRIVATE src/platform/filepicker.cpp)
-target_include_directories(${controller_target} PRIVATE
-    include src ${VAUCHI_CABI_INCLUDE} ${QRENCODE_INCLUDE_DIRS})
-target_link_directories(${controller_target} PRIVATE
-    ${QRENCODE_LIBRARY_DIRS})
-target_link_libraries(${controller_target} PRIVATE
-    Qt6::Widgets Qt6::Core Qt6::Network Qt6::Concurrent ${QRENCODE_LIBRARIES} ${VAUCHI_CABI})
-endforeach()
-add_test(NAME presentation_controller_test COMMAND presentation_controller_test)
 foreach(renderer_target presentation_surface_test presentation_image_test
-        presentation_qr_placement_test presentation_controller_test presentation_copy_test)
+        presentation_qr_placement_test)
     target_link_libraries(${renderer_target} PRIVATE qt_display)
 endforeach()
-
-add_test(NAME presentation_profile_copy COMMAND presentation_copy_test profile)
-add_test(NAME presentation_capture_copy COMMAND presentation_copy_test capture)
-add_test(NAME presentation_overlay_copy COMMAND presentation_copy_test overlay)
-add_test(NAME presentation_scan_outcome COMMAND presentation_copy_test scan)
-# The QrRequestScan paste-fallback test fails a blocking (exec-style) prompt
-# by hanging; bound the red so CI reports a failure instead of stalling.
-set_tests_properties(presentation_controller_test PROPERTIES TIMEOUT 60)
 
 # Persistent per-surface navigation: PresentationState's SetNavigation
 # reducer plus the sidebar model/widget it feeds.
@@ -557,40 +396,13 @@ target_include_directories(navigation_icons_test PRIVATE src)
 target_link_libraries(navigation_icons_test PRIVATE Qt6::Widgets Qt6::Core)
 add_test(NAME navigation_icons_test COMMAND navigation_icons_test)
 
-# Notification severity test: Core priority hint -> tray message severity
-add_executable(notification_severity_test tests/notification_severity_test.cpp)
-target_include_directories(notification_severity_test PRIVATE src)
-target_link_libraries(notification_severity_test PRIVATE Qt6::Widgets Qt6::Core)
-add_test(NAME notification_severity_test COMMAND notification_severity_test)
-
-# The OS language tag reaches Core for "Follow system" (vauchi/private#721).
-add_executable(system_locale_test tests/system_locale_test.cpp)
-target_include_directories(system_locale_test PRIVATE src)
-target_link_libraries(system_locale_test PRIVATE Qt6::Core)
-add_test(NAME system_locale_test COMMAND system_locale_test)
-
-# The network cost reaches Core for "Wi-Fi only" content updates
-# (vauchi/private#733 D6).
-add_executable(network_cost_test tests/network_cost_test.cpp)
-target_include_directories(network_cost_test PRIVATE src)
-target_link_libraries(network_cost_test PRIVATE Qt6::Core Qt6::Network)
-add_test(NAME network_cost_test COMMAND network_cost_test)
-
-# Deep links: the desktop entry registers vauchi://, only vauchi:// arguments
-# reach Core, and a second launch hands its link to the running instance
-# (vauchi/private#650).
+# Deep links: only vauchi:// arguments are reported, and a second launch
+# hands its link to the running instance (vauchi/private#650). The desktop
+# entry that registers the scheme is the app's (linux-app).
 add_executable(deep_link_test tests/deep_link_test.cpp src/platform/deeplink.cpp)
 target_include_directories(deep_link_test PRIVATE src)
 target_link_libraries(deep_link_test PRIVATE Qt6::Core Qt6::Network)
-target_compile_definitions(deep_link_test PRIVATE
-    VAUCHI_DESKTOP_ENTRY="${CMAKE_CURRENT_SOURCE_DIR}/packaging/vauchi-qt.desktop")
 add_test(NAME deep_link_test COMMAND deep_link_test)
-
-# Native menus render Core actions and preserve platform Quit placement.
-add_executable(menubar_test tests/menubar_test.cpp src/platform/menubar.cpp)
-target_include_directories(menubar_test PRIVATE src ${VAUCHI_CABI_INCLUDE})
-target_link_libraries(menubar_test PRIVATE Qt6::Widgets Qt6::Core ${VAUCHI_CABI} ${CMAKE_DL_LIBS})
-add_test(NAME menubar_test COMMAND menubar_test)
 
 add_executable(file_picker_test tests/file_picker_test.cpp src/platform/filepicker.cpp)
 target_include_directories(file_picker_test PRIVATE src)
@@ -600,7 +412,7 @@ set_tests_properties(file_picker_test PROPERTIES TIMEOUT 30)
 
 # ThemeManager test: palette generation, stylesheet output, file loading,
 # brand font registration. Needs resources.qrc so registerBrandFonts() has
-# real :/fonts/... payloads to register, same as the qvauchi target.
+# real :/fonts/... payloads to register, same as the qt_display library.
 add_executable(theme_test
     tests/theme_test.cpp
     src/coreui/thememanager.cpp
@@ -610,7 +422,7 @@ target_include_directories(theme_test PRIVATE include ${VAUCHI_TOKENS_INCLUDE})
 target_link_libraries(theme_test PRIVATE Qt6::Widgets Qt6::Core)
 add_test(NAME theme_test COMMAND theme_test)
 
-# Screen-catalog document parsing for `qvauchi --render-catalog`: Core's
+# Screen-catalog document parsing for `qt_display_render --render-catalog`: Core's
 # screen_catalog_v1 shape, the presentation-contract fallback, file-name
 # safety of code_ids, and per-variant output names.
 add_executable(screen_catalog_test
@@ -626,30 +438,22 @@ add_test(NAME screen_catalog_test COMMAND screen_catalog_test)
 # no-ops that exit 0 while checking nothing — indistinguishable from passing.
 # CI configures without CMAKE_BUILD_TYPE, so it is unaffected, but any local
 # `-DCMAKE_BUILD_TYPE=Release` build reports a silent false green (observed
-# 2026-08-07: presentation_controller_test passed in Release while a real
-# failure was present, and only surfaced in a Debug build).
+# 2026-08-07: a controller test passed in Release while a real failure was
+# present, and only surfaced in a Debug build).
 #
 # Undefine NDEBUG on the test targets so their assertions survive every build
-# type. Applied per-target rather than globally: qvauchi itself should keep
+# type. Applied per-target rather than globally: the library itself keeps
 # whatever the chosen build type implies.
 foreach(vauchi_test_target
-        smoke_test
-        app_engine_test
         presentation_state_test
         presentation_surface_test
         presentation_image_test
         presentation_qr_placement_test
-        presentation_controller_test
-        presentation_copy_test
         presentation_navigation_test
         navigation_icons_test
         theme_test
         screen_catalog_test
-        notification_severity_test
-        system_locale_test
-        network_cost_test
         deep_link_test
-        menubar_test
         file_picker_test)
     target_compile_options(${vauchi_test_target} PRIVATE -UNDEBUG)
 endforeach()
@@ -673,24 +477,3 @@ target_link_directories(atspi_fixture_probe PRIVATE
     ${QRENCODE_LIBRARY_DIRS})
 target_link_libraries(atspi_fixture_probe PRIVATE qt_display
     Qt6::Widgets Qt6::Core ${QRENCODE_LIBRARIES})
-
-# render-fixture catalog harness smoke: a golden fixture must render to a valid
-# PNG via `qvauchi --render-fixture` (offscreen). See render_fixture_smoke.cmake.
-add_test(NAME render_fixture_smoke
-    COMMAND ${CMAKE_COMMAND}
-        -DBIN=$<TARGET_FILE:qvauchi>
-        -DFIXTURE=${CMAKE_SOURCE_DIR}/tests/fixtures/generic_surface.json
-        -DPNG_OUT=${CMAKE_CURRENT_BINARY_DIR}/render_fixture_smoke.png
-        -DCABI_DIR=${VAUCHI_CABI_DIR}
-        -P ${CMAKE_SOURCE_DIR}/tests/render_fixture_smoke.cmake)
-
-# render-catalog smoke: every entry of a two-screen catalog must render to one
-# valid, distinct PNG per theme/text variant via `qvauchi --render-catalog`
-# (offscreen). See render_catalog_smoke.cmake.
-add_test(NAME render_catalog_smoke
-    COMMAND ${CMAKE_COMMAND}
-        -DBIN=$<TARGET_FILE:qvauchi>
-        -DCATALOG=${CMAKE_SOURCE_DIR}/tests/fixtures/catalog_smoke.json
-        -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/render_catalog_smoke
-        -DCABI_DIR=${VAUCHI_CABI_DIR}
-        -P ${CMAKE_SOURCE_DIR}/tests/render_catalog_smoke.cmake)

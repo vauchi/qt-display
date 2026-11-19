@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# The Core release this app builds its C ABI from — the only copy of the
-# pin (ADR-026 amendment). Core's release pipeline opens the bump MR.
+# The Core release whose fixtures and node list this shell is checked
+# against (contract:replay, test:screen-catalog, check:parser-parity). No
+# Core code is built or linked here. Core's release pipeline opens the
+# bump MR.
 v0.106.2

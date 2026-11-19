@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Builds the qt_display static library from the repository's CMake
-// project (QT_DISPLAY_ONLY skips Core's C ABI and qvauchi) and links Qt
-// the way the C++ build does, through pkg-config.
+// project and links Qt the way the C++ build does, through pkg-config.
 use std::process::Command;
 
 fn pkg_config_libs(modules: &[&str]) -> String {
@@ -32,7 +31,6 @@ fn main() {
             .to_string()
     });
     let built = cmake::Config::new(&repo)
-        .define("QT_DISPLAY_ONLY", "ON")
         .define("VAUCHI_PERMISSION_TESTS", "OFF")
         .define("VAUCHI_TOKENS_INCLUDE", &tokens)
         .build_target("qt_display")

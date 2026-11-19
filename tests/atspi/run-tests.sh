@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Mattia Egloff <mattia.egloff@pm.me>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Run AT-SPI tests for qvauchi under Xvfb with D-Bus + AT-SPI bus.
+# Run the renderer's AT-SPI tests under Xvfb with D-Bus + AT-SPI bus.
 #
 # Qt6 requires the AT-SPI bridge (QSpiAccessibleBridge) which is typically
 # compiled into libQt6Gui.so. The bridge communicates with the AT-SPI
@@ -75,10 +75,6 @@ fi
 # XDG_CURRENT_DESKTOP=none prevents xdg-desktop-portal from activating
 # compositor-specific portals (e.g., hyprland) that crash under Xvfb.
 # QT_QPA_PLATFORM=xcb forces X11 backend (Qt defaults to wayland which crashes under Xvfb)
-LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
-UPDATE_SNAPSHOTS="${UPDATE_SNAPSHOTS:-}"
-export LD_LIBRARY_PATH UPDATE_SNAPSHOTS
-
 exec env XDG_CURRENT_DESKTOP=none QT_QPA_PLATFORM=xcb \
     xvfb-run -a -s '-screen 0 1280x720x24' \
     dbus-run-session -- bash -c "

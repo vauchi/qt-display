@@ -22,8 +22,8 @@ include:
 
 variables:
   VAUCHI_SCRIPTS_REF: "241b058b3127118f71efd9d15ce767545754f26f"
-  SAST_EXCLUDED_PATHS: "build/, vauchi-core/"
-  SECRET_DETECTION_EXCLUDED_PATHS: "build/, vauchi-core/"
+  SAST_EXCLUDED_PATHS: "build/"
+  SECRET_DETECTION_EXCLUDED_PATHS: "build/"
   SAST_ANALYZER_IMAGE_TAG: "5"
 
 stages:
@@ -53,30 +53,9 @@ workflow:
 default:
   interruptible: true
 
-build:cabi:
-  stage: deps
-  script:
-    # core-ref is this app's only copy of its Core pin (ADR-026 amendment);
-    # Core's release pipeline bumps it.
-    - VAUCHI_CORE_REF=$(sed -n '/^[[:space:]]*#/d; /[^[:space:]]/{p;q;}' core-ref)
-    - git clone --depth 1 --branch "${VAUCHI_CORE_REF}"
-        https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/vauchi/core.git
-        vauchi-core
-    - cd vauchi-core
-    - cargo build --release -p vauchi-cabi --features secure-storage
-    - mkdir -p ${CI_PROJECT_DIR}/cabi-lib
-    - cp target/release/libvauchi_cabi.so target/release/libvauchi_cabi.a ${CI_PROJECT_DIR}/cabi-lib/
-  artifacts:
-    paths:
-      - cabi-lib/
-  tags: [linux]
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
 build:qt:
   stage: build
-  needs: [build:cabi]
+  needs: []
   script:
     # Tokens.h is generated from the themes repo; nothing guarantees a
     # ../themes sibling in the runner's build slot, so fetch and generate
@@ -86,8 +65,7 @@ build:qt:
         ${CI_PROJECT_DIR}/themes-src
     - python3 ${CI_PROJECT_DIR}/themes-src/scripts/generate.py
     - mkdir -p build && cd build
-    - cmake .. -DVAUCHI_CABI_DIR=${CI_PROJECT_DIR}/cabi-lib
-        -DVAUCHI_TOKENS_INCLUDE=${CI_PROJECT_DIR}/themes-src/generated
+    - cmake .. -DVAUCHI_TOKENS_INCLUDE=${CI_PROJECT_DIR}/themes-src/generated
     - cmake --build . --parallel
   artifacts:
     paths:
@@ -99,7 +77,7 @@ build:qt:
 
 test:unit:
   stage: test
-  needs: [build:qt, build:cabi]
+  needs: [build:qt]
   variables:
     QT_QPA_PLATFORM: offscreen
   script:
@@ -159,12 +137,16 @@ test:rust-wrapper:
 # Uses gcovr for Cobertura conversion and pushes metrics to Grafana Pushgateway.
 coverage:unit:
   stage: test
-  needs: [build:cabi]
+  needs: []
   variables:
     QT_QPA_PLATFORM: offscreen
   script:
+    - git clone --depth 1 --branch main
+        https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/vauchi/themes.git
+        ${CI_PROJECT_DIR}/themes-src
+    - python3 ${CI_PROJECT_DIR}/themes-src/scripts/generate.py
     - mkdir -p build-cov && cd build-cov
-    - cmake .. -DVAUCHI_CABI_DIR=${CI_PROJECT_DIR}/cabi-lib -DCOVERAGE=ON
+    - cmake .. -DVAUCHI_TOKENS_INCLUDE=${CI_PROJECT_DIR}/themes-src/generated -DCOVERAGE=ON
     - cmake --build . --parallel
     - ctest --output-on-failure || true
     - cd ${CI_PROJECT_DIR}
@@ -202,16 +184,17 @@ coverage:unit:
           - ".gitlab-ci.yml"
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
-# AT-SPI accessibility + widget tree tests
-# Uses a venv with --system-site-packages so we can install pytest/Pillow
+# AT-SPI semantics of the renderer: atspi_fixture_probe presents a surface
+# fixture through the production PresentationSurface and the test reads the
+# live accessibility bus. The tests that drove a whole app (launch,
+# navigation, snapshots) run in linux-app against its qvauchi.
+# Uses a venv with --system-site-packages so we can install pytest
 # while inheriting gi (PyGObject), a system-only package for AT-SPI.
-.atspi-base:
+test:a11y:
   stage: test
-  needs: [build:qt, build:cabi]
+  needs: [build:qt]
   tags: [linux, self-hosted]
-  # Self-heal AT-SPI startup-timing flakes ("qvauchi did not appear in
-  # the AT-SPI tree within Ns") shared by every job extending this base.
-  # A transient registration race heals on retry; a real regression
+  # A transient AT-SPI registration race heals on retry; a real regression
   # fails all attempts, so retry cannot mask a true break.
   retry:
     max: 2
@@ -221,36 +204,12 @@ coverage:unit:
       - runner_system_failure
   variables:
     QT_ACCESSIBILITY: "1"
-    LD_LIBRARY_PATH: "${CI_PROJECT_DIR}/cabi-lib"
   before_script:
     - uv venv --system-site-packages .venv
     - source .venv/bin/activate
     - uv pip install --quiet -r tests/atspi/requirements.txt
-
-test:snapshot-oracle:
-  stage: lint
-  needs: []
-  tags: [linux]
   script:
-    - python3 tests/atspi/test_screenshot_oracle.py -v
-    - python3 tests/atspi/test_action_dispatch.py -v
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        compare_to: refs/heads/$CI_DEFAULT_BRANCH
-        paths:
-          - "tests/atspi/screenshot.py"
-          - "tests/atspi/test_screenshot_oracle.py"
-          - "tests/atspi/test_action_dispatch.py"
-          - "tests/atspi/helpers.py"
-          - "tests/atspi/navigation.py"
-          - ".gitlab-ci.yml"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-test:a11y:
-  extends: .atspi-base
-  script:
-    - tests/atspi/run-tests.sh -v --tb=short -k "not test_snapshots"
+    - tests/atspi/run-tests.sh -v --tb=short
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
@@ -258,42 +217,8 @@ test:a11y:
         paths:
           - "src/**"
           - "tests/atspi/**"
-          - ".gitlab-ci.yml"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-# Screenshot artifacts of every navigation destination and each onboarding
-# step, captured under Xvfb (mirrors linux-gtk's test:snapshots). Baselines
-# under tests/atspi/snapshots/baseline/ require explicit candidate generation;
-# missing references report that no comparison took place. The job stays
-# `allow_failure: true` until references are reviewed and the captured
-# set is deterministic (Contacts / My Card render the per-run random test
-# identity), so the job surfaces screenshots without blocking merges.
-# Generate candidates: UPDATE_SNAPSHOTS=1 tests/atspi/run-tests.sh -k test_snapshots
-test:snapshots:
-  extends: .atspi-base
-  allow_failure: true
-  variables:
-    VRT_PLATFORM: linux-qt
-    VRT_SCREENSHOT_DIR: tests/atspi/snapshots/actual
-  script:
-    - mkdir -p tests/atspi/snapshots/{baseline,actual,diff}
-    - tests/atspi/run-tests.sh -v --tb=short -k "test_snapshots"
-  after_script:
-    - !reference [.vrt-upload-script, script]
-  artifacts:
-    when: always
-    paths:
-      - tests/atspi/snapshots/baseline/
-      - tests/atspi/snapshots/actual/
-      - tests/atspi/snapshots/diff/
-    expire_in: 30 days
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        compare_to: refs/heads/$CI_DEFAULT_BRANCH
-        paths:
-          - "src/**"
-          - "tests/atspi/**"
+          - "tests/atspi_fixture_probe.cpp"
+          - "CMakeLists.txt"
           - ".gitlab-ci.yml"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
@@ -303,8 +228,7 @@ test:snapshots:
 # pipeline, in dark, light, and large-text variants. The full catalog is
 # resolved from core-ref's contract dependency, with revision and hash
 # preserved alongside the rendered artifacts. qt_display_render draws them
-# on the qt_display library the apps assemble, without Core; the legacy
-# qvauchi it replaces goes with private#1029's retirement.
+# on the qt_display library the apps assemble, without Core.
 test:screen-catalog:
   stage: test
   needs: [build:qt]
@@ -446,9 +370,8 @@ lint:cross-cutting-blocking:
       chmod +x check-design-tokens.sh
     - ./check-design-tokens.sh --strict src/
     - python3 .ratchet-scripts/humble_check.py --repo "${CI_PROJECT_NAME}" --repo-path "${CI_PROJECT_DIR}" --config .ratchet-scripts/humble_check_rules.json --check .ratchet-scripts/humble_check.baseline.json
-    # VCI01 (ADR-025): no Core build beyond the shrink-only baseline; the
-    # vauchi-cabi build stays listed until the Qt pairing moves into
-    # linux-app (ADR-078, private#1029).
+    # VCI01 (ADR-025): no Core build; this repository builds none since the
+    # Qt pairing moved into linux-app (ADR-078, private#1029).
     - .ratchet-scripts/check-no-core-build.sh "${CI_PROJECT_DIR}" .ratchet-scripts/check-no-core-build.baseline
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -465,74 +388,12 @@ lint:cross-cutting-blocking:
           - "scripts/**/*.sh"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-# ============================================================
-# Package Stage — build-verification for distro packages
-# ============================================================
-# Only run on tags or manual trigger — not on every MR.
-
-# Both native app packages and qt-display component tags require zero
-# presentation-boundary counters. Component tags run the Rust wrapper test;
-# the legacy standalone app packages remain manual on those tags.
+# Component tags require zero presentation-boundary counters. The app
+# packages are linux-app's (private#1029).
 release:ratchet-zero:
   extends: .release-ratchet-zero
   rules:
     - if: $CI_COMMIT_TAG
-
-package:deb:
-  stage: package
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/debian:bookworm
-  tags: [docker]
-  needs:
-    - job: build:qt
-      optional: true
-    - job: release:ratchet-zero
-      optional: true
-  before_script:
-    - apt-get update -qq
-    - apt-get install -y -qq devscripts debhelper cmake g++ pkg-config
-        qt6-base-dev libqrencode-dev cargo rustc git
-        qt6-multimedia-dev libzbar-dev qt6-connectivity-dev libpcsclite-dev
-  script:
-    - dpkg-buildpackage -us -uc -b
-    - mkdir -p deb-out && cp ../*.deb deb-out/
-  artifacts:
-    paths:
-      - deb-out/*.deb
-    expire_in: 30 days
-  rules:
-    - if: $CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /^qt-display-v/
-    - when: manual
-      allow_failure: true
-
-package:rpm:
-  stage: package
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/fedora:40
-  tags: [docker]
-  needs:
-    - job: build:qt
-      optional: true
-    - job: release:ratchet-zero
-      optional: true
-  before_script:
-    - dnf install -y rpm-build cmake gcc-c++ pkg-config qt6-qtbase-devel
-        qrencode-devel cargo rust git-core
-        qt6-qtmultimedia-devel zbar-devel qt6-qtconnectivity-devel
-        pcsc-lite-devel
-  script:
-    - mkdir -p rpmbuild/{SOURCES,SPECS}
-    - tar czf rpmbuild/SOURCES/vauchi-qt-0.5.0.tar.gz
-        --transform 's,^,vauchi-qt-0.5.0/,' --exclude=rpmbuild .
-    - cp packaging/vauchi-qt.spec rpmbuild/SPECS/
-    - rpmbuild --define "_topdir $(pwd)/rpmbuild" -bb rpmbuild/SPECS/vauchi-qt.spec
-    - mkdir -p rpm-out && cp rpmbuild/RPMS/**/*.rpm rpm-out/
-  artifacts:
-    paths:
-      - rpm-out/*.rpm
-    expire_in: 30 days
-  rules:
-    - if: $CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /^qt-display-v/
-    - when: manual
-      allow_failure: true
 
 # ============================================================
 # Deploy Stage — Badge Pages

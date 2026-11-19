@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Offscreen renders on the display library the apps assemble, for VRT and
-// test:screen-catalog (private#1029). Same arguments and output names as
-// the legacy `qvauchi --render-catalog` / `--render-fixture`, which this
-// replaces once the legacy app is retired.
+// test:screen-catalog (private#1029): `--render-catalog` and
+// `--render-fixture`.
 //
 //   qt_display_render --render-catalog <catalog.json> <out-dir> [w] [h]
 //   qt_display_render --render-fixture <surface.json> <out.png> [w] [h]
