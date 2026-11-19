@@ -53,7 +53,10 @@ QList<Step> alert() {
         const auto shown = alerts();
         assert(shown.size() == 1);
         auto *box = shown.first();
+// QMessageBox drops its window title on macOS, where a developer may run this.
+#ifndef Q_OS_MACOS
         assert(box->windowTitle() == "Prepared alert & title");
+#endif
         assert(box->text() == message);
         assert(box->textFormat() == Qt::PlainText);
         assert(box->standardButtons() == QMessageBox::Ok);
