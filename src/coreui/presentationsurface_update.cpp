@@ -95,14 +95,36 @@ void PresentationSurface::updateContextBar(const QJsonObject &contextBar,
         const auto action = contextBar.value(role).toObject();
         if (!action.isEmpty()) titleRow->addWidget(contextBarButton(action, role));
     }
+    delete findChild<QWidget *>(QStringLiteral("context-pinned"), Qt::FindDirectChildrenOnly);
     delete findChild<QPushButton *>(QStringLiteral("context-primary"), Qt::FindDirectChildrenOnly);
+    auto *outer = qobject_cast<QBoxLayout *>(layout());
+    if (QWidget *pinned = pinnedActions(contextBar)) {
+        outer->addWidget(pinned);
+    }
     const auto primary = contextBar.value(QStringLiteral("primary")).toObject();
     if (!primary.isEmpty()) {
-        auto *outer = qobject_cast<QBoxLayout *>(layout());
         outer->addWidget(contextBarButton(primary, QStringLiteral("primary")));
     }
     m_contextBar = contextBar;
     m_sidebarShown = sidebarShown;
+}
+
+QWidget *PresentationSurface::pinnedActions(const QJsonObject &contextBar) {
+    const QJsonArray actions = contextBar.value(QStringLiteral("pinned")).toArray();
+    if (actions.isEmpty()) return nullptr;
+    auto *group = new QWidget;
+    group->setObjectName(QStringLiteral("context-pinned"));
+    auto *column = new QVBoxLayout(group);
+    column->setContentsMargins(0, 0, 0, 0);
+    for (qsizetype index = 0; index < actions.size(); ++index) {
+        // Full width and not the default button: no answer reads as the
+        // suggested one.
+        QPushButton *button = contextBarButton(
+            actions.at(index).toObject(), QStringLiteral("pinned-%1").arg(index));
+        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        column->addWidget(button);
+    }
+    return group;
 }
 
 bool PresentationSurface::keepsFocusedTypedValue(const QJsonObject &previous,

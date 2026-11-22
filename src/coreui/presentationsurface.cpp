@@ -121,6 +121,12 @@ PresentationSurface::PresentationSurface(const QJsonObject &surface,
         outer->addWidget(scroll, 1);
     }
 
+    // A decision Core wants kept in view: under the content and outside
+    // its scroll area (vauchi/private#1304).
+    if (QWidget *pinned = pinnedActions(contextBar)) {
+        outer->addWidget(pinned);
+    }
+
     // Primary sits at the bottom of the surface, inside it, never in the
     // title row: a fixed layout keeps it in view above; a scrolling one
     // pins it under the scroll area rather than letting it scroll away.

@@ -60,6 +60,8 @@ private:
     QWidget *actionButton(const QJsonObject &action);
     QPushButton *contextBarButton(const QJsonObject &action,
                                   const QString &role);
+    /// Core's pinned group, or null when the bar has none.
+    QWidget *pinnedActions(const QJsonObject &contextBar);
     void activate(const QJsonObject &action);
     QString targetSizeStyleSheet() const;
     static void applyAccessibility(QWidget *widget,
