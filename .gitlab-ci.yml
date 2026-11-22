@@ -19,6 +19,7 @@ include:
       - '/ci-templates/cross-cutting-lint.yml'
       - '/ci-templates/domain-calls.yml'
       - '/ci-templates/cppcheck.yml'
+      - '/ci-templates/auto-tag.yml'
 
 variables:
   VAUCHI_SCRIPTS_REF: "241b058b3127118f71efd9d15ce767545754f26f"
@@ -27,6 +28,7 @@ variables:
   SAST_ANALYZER_IMAGE_TAG: "5"
 
 stages:
+  - auto-tag
   - lint
   - deps
   - build
@@ -34,6 +36,15 @@ stages:
   - security
   - package
   - deploy
+
+# A version bump merged to main is the release: the job pushes
+# v<crate version> when that tag does not exist yet, so the tag always
+# sits on the merged commit (private#1045). The crate is in qt-display/,
+# not at the repository root.
+auto-tag:version:
+  extends: .auto-tag
+  variables:
+    AUTO_TAG_VERSION_CMD: "grep '^version' qt-display/Cargo.toml | head -1 | sed 's/.*\"\\(.*\\)\"/\\1/'"
 
 workflow:
   auto_cancel:
