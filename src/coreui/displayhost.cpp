@@ -13,7 +13,21 @@
 #include <QJsonDocument>
 #include <QResizeEvent>
 #include <QSplitter>
+#include <QStyleHints>
 #include <algorithm>
+
+namespace {
+// Empty when the platform does not know: Core then paints its dark
+// default instead of a guess (vauchi/private#814).
+QString desktopColorScheme() {
+    switch (QGuiApplication::styleHints()->colorScheme()) {
+    case Qt::ColorScheme::Light: return QStringLiteral("light");
+    case Qt::ColorScheme::Dark: return QStringLiteral("dark");
+    case Qt::ColorScheme::Unknown: break;
+    }
+    return {};
+}
+}
 
 QtDisplayHost::QtDisplayHost(QtDisplayEventCallback onEvent, void *userData)
     : m_onEvent(onEvent), m_userData(userData),
@@ -24,6 +38,9 @@ QtDisplayHost::QtDisplayHost(QtDisplayEventCallback onEvent, void *userData)
     resetApplicationMenu();
     resetStatusItem();
     resize(900, 700);
+    connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this, [this] {
+        if (m_environmentReported) reportEnvironment();
+    });
 }
 
 void QtDisplayHost::render(const QJsonArray &commands) {
@@ -125,14 +142,17 @@ void QtDisplayHost::reportDeepLink(const QString &uri) {
 
 void QtDisplayHost::reportEnvironment() {
     m_environmentReported = true;
-    emitEvent({{"PresentationEnvironmentChanged", QJsonObject{
+    QJsonObject environment{
         {"available_width", qMax(0, width())},
         {"available_height", qMax(0, height())},
         {"input_modes", QJsonArray{"pointer", "keyboard"}},
         {"motion", qEnvironmentVariableIsSet("QT_REDUCE_MOTION") ? "reduced" : "full"},
         // This shell keeps the bar's pinned group in view; Core pins
         // nothing for a shell that does not say so (vauchi/private#1304).
-        {"pinned_actions", true}}}});
+        {"pinned_actions", true}};
+    if (const QString scheme = desktopColorScheme(); !scheme.isEmpty())
+        environment.insert("color_scheme", scheme);
+    emitEvent({{"PresentationEnvironmentChanged", environment}});
 }
 
 void QtDisplayHost::resizeEvent(QResizeEvent *event) {
