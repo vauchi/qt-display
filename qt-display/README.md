@@ -22,7 +22,9 @@ The generated layout-token header ships in `tokens/`, with its source
 revision in `tokens/SOURCE`. Set `VAUCHI_TOKENS_INCLUDE` to override it.
 A sibling themes checkout is not required.
 
-Component releases use `qt-display-v<crate-version>` tags. Consumers pin
-that immutable tag and the exact crate version. Tag CI tests an isolated
-source archive and enforces the presentation-boundary release gate; the
+Component releases use `v<crate-version>` tags, pushed by CI when a
+version bump merges to main (`qt-display-v<crate-version>` up to 0.1.4).
+Consumers pin that immutable tag and the exact crate version. Tag CI
+tests an isolated source archive and enforces the presentation-boundary
+release gate; the
 legacy standalone app's distro package jobs remain manual on these tags.
