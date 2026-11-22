@@ -122,6 +122,8 @@ QWidget *PresentationSurface::pinnedActions(const QJsonObject &contextBar) {
         QPushButton *button = contextBarButton(
             actions.at(index).toObject(), QStringLiteral("pinned-%1").arg(index));
         button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        button->setMinimumHeight(m_minimumTargetSize);
+        button->setStyleSheet(targetSizeStyleSheet());
         column->addWidget(button);
     }
     return group;
