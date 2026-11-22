@@ -26,6 +26,9 @@ void verifyStartup(void *) {
            == QJsonArray({"pointer", "keyboard"}));
     assert(environment.value("motion").toString()
            == (qEnvironmentVariableIsSet("QT_REDUCE_MOTION") ? "reduced" : "full"));
+    // This shell keeps the bar's pinned group in view; Core pins nothing
+    // for a shell that does not say so (vauchi/private#1304).
+    assert(environment.value("pinned_actions").toBool());
     window()->resize(640, 480);
     QMetaObject::invokeMethod(qApp, [] {
         assert(environment.value("available_width").toInt() == 640);

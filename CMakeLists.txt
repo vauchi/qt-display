@@ -370,8 +370,28 @@ target_link_libraries(presentation_qr_placement_test PRIVATE
 add_test(NAME presentation_qr_placement_test
     COMMAND presentation_qr_placement_test)
 
+# Core's pinned group under a surface's content (vauchi/private#1304).
+add_executable(presentation_pinned_actions_test
+    tests/presentation_pinned_actions_test.cpp
+    src/coreui/navigationicons.cpp
+    src/coreui/presentationaccessibility.cpp
+    src/coreui/presentationsurface.cpp
+    src/coreui/presentationsurface_list.cpp
+    src/coreui/presentationsurface_avatar.cpp
+    src/coreui/presentationsurface_nodes.cpp
+    src/coreui/presentationsurface_update.cpp
+    src/coreui/presentationsurface_qr.cpp)
+target_include_directories(presentation_pinned_actions_test PRIVATE
+    src ${QRENCODE_INCLUDE_DIRS})
+target_link_directories(presentation_pinned_actions_test PRIVATE
+    ${QRENCODE_LIBRARY_DIRS})
+target_link_libraries(presentation_pinned_actions_test PRIVATE
+    Qt6::Widgets Qt6::Core ${QRENCODE_LIBRARIES})
+add_test(NAME presentation_pinned_actions_test
+    COMMAND presentation_pinned_actions_test)
+
 foreach(renderer_target presentation_surface_test presentation_image_test
-        presentation_qr_placement_test)
+        presentation_qr_placement_test presentation_pinned_actions_test)
     target_link_libraries(${renderer_target} PRIVATE qt_display)
 endforeach()
 
