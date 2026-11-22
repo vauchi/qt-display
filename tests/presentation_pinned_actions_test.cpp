@@ -101,6 +101,9 @@ int main(int argc, char **argv) {
         auto *no = surface.findChild<QPushButton *>("context-pinned-1");
         assert(no != nullptr);
         assert(no->accessibleName() == QStringLiteral("No, stop the exchange"));
+        // Tokens name no target size here, so the shell's 48 applies, as
+        // for a button in the content.
+        assert(no->minimumHeight() == 48);
         no->click();
         assert(reported == QStringLiteral("pinned.1"));
     }
