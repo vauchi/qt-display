@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "display_test_harness.h"
+#include <QStyleHints>
 #include <cstdio>
 
 using namespace display_test;
@@ -16,6 +17,38 @@ void receiveEnvironment(const char *json, void *) {
         environment = event.value("PresentationEnvironmentChanged").toObject();
         reports.append(environment);
     }
+}
+
+// The offscreen platform ignores a requested scheme and stays unknown, so
+// the change is also signalled by hand; a desktop platform applies it.
+void expectSchemeReported(Qt::ColorScheme requested) {
+    auto *hints = QGuiApplication::styleHints();
+    const auto before = reports.size();
+    hints->setColorScheme(requested);
+    emit hints->colorSchemeChanged(hints->colorScheme());
+    QCoreApplication::processEvents();
+    assert(reports.size() > before);
+    switch (hints->colorScheme()) {
+    case Qt::ColorScheme::Light:
+        assert(environment.value("color_scheme").toString() == "light");
+        break;
+    case Qt::ColorScheme::Dark:
+        assert(environment.value("color_scheme").toString() == "dark");
+        break;
+    case Qt::ColorScheme::Unknown:
+        assert(!environment.contains("color_scheme"));
+        break;
+    }
+}
+
+// Core paints the dark default for a shell that reports no colour scheme,
+// so "follow system" needs the desktop's setting and each change of it
+// (vauchi/private#814).
+void verifyColorScheme() {
+    expectSchemeReported(Qt::ColorScheme::Light);
+    expectSchemeReported(Qt::ColorScheme::Dark);
+    expectSchemeReported(Qt::ColorScheme::Light);
+    qt_display_stop();
 }
 
 void verifyStartup(void *) {
@@ -34,7 +67,7 @@ void verifyStartup(void *) {
         assert(environment.value("available_width").toInt() == 640);
         assert(environment.value("available_height").toInt() == 480);
         assert(reports.size() >= 2);
-        qt_display_stop();
+        verifyColorScheme();
     }, Qt::QueuedConnection);
 }
 }
