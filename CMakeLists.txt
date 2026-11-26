@@ -106,6 +106,14 @@ add_test(NAME camera_preview COMMAND camera_preview_test)
 set_tests_properties(camera_preview PROPERTIES TIMEOUT 30
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(display_camera_preview_test tests/display_camera_preview_test.cpp)
+target_include_directories(display_camera_preview_test PRIVATE src)
+target_link_libraries(display_camera_preview_test PRIVATE qt_display)
+target_compile_options(display_camera_preview_test PRIVATE -UNDEBUG)
+add_test(NAME display_camera_preview COMMAND display_camera_preview_test)
+set_tests_properties(display_camera_preview PROPERTIES TIMEOUT 30
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(display_list_layout_test tests/display_list_layout_test.cpp)
 target_include_directories(display_list_layout_test PRIVATE src)
 target_link_libraries(display_list_layout_test PRIVATE qt_display)
@@ -336,15 +344,7 @@ target_link_libraries(contract_replay_test PRIVATE Qt6::Core)
 # Generic presentation surface: native controls emit only opaque protocol
 # identifiers and generic values.
 add_executable(presentation_surface_test
-    tests/presentation_surface_test.cpp
-    src/coreui/navigationicons.cpp
-    src/coreui/presentationaccessibility.cpp
-    src/coreui/presentationsurface.cpp
-    src/coreui/presentationsurface_list.cpp
-    src/coreui/presentationsurface_avatar.cpp
-    src/coreui/presentationsurface_nodes.cpp
-    src/coreui/presentationsurface_update.cpp
-    src/coreui/presentationsurface_qr.cpp)
+    tests/presentation_surface_test.cpp)
 target_include_directories(presentation_surface_test PRIVATE
     src ${QRENCODE_INCLUDE_DIRS})
 target_link_directories(presentation_surface_test PRIVATE
@@ -354,15 +354,7 @@ target_link_libraries(presentation_surface_test PRIVATE
 add_test(NAME presentation_surface_test COMMAND presentation_surface_test)
 
 add_executable(presentation_image_test
-    tests/presentation_image_test.cpp
-    src/coreui/navigationicons.cpp
-    src/coreui/presentationaccessibility.cpp
-    src/coreui/presentationsurface.cpp
-    src/coreui/presentationsurface_list.cpp
-    src/coreui/presentationsurface_avatar.cpp
-    src/coreui/presentationsurface_nodes.cpp
-    src/coreui/presentationsurface_update.cpp
-    src/coreui/presentationsurface_qr.cpp)
+    tests/presentation_image_test.cpp)
 target_include_directories(presentation_image_test PRIVATE
     src ${QRENCODE_INCLUDE_DIRS})
 target_link_directories(presentation_image_test PRIVATE
@@ -376,15 +368,7 @@ add_test(NAME presentation_image_test COMMAND presentation_image_test)
 # and `error_correction` level fields (vauchi/private#450, as on
 # iOS/macOS).
 add_executable(presentation_qr_placement_test
-    tests/presentation_qr_placement_test.cpp
-    src/coreui/navigationicons.cpp
-    src/coreui/presentationaccessibility.cpp
-    src/coreui/presentationsurface.cpp
-    src/coreui/presentationsurface_list.cpp
-    src/coreui/presentationsurface_avatar.cpp
-    src/coreui/presentationsurface_nodes.cpp
-    src/coreui/presentationsurface_update.cpp
-    src/coreui/presentationsurface_qr.cpp)
+    tests/presentation_qr_placement_test.cpp)
 target_include_directories(presentation_qr_placement_test PRIVATE
     src ${QRENCODE_INCLUDE_DIRS})
 target_link_directories(presentation_qr_placement_test PRIVATE
@@ -396,15 +380,7 @@ add_test(NAME presentation_qr_placement_test
 
 # Core's pinned group under a surface's content (vauchi/private#1304).
 add_executable(presentation_pinned_actions_test
-    tests/presentation_pinned_actions_test.cpp
-    src/coreui/navigationicons.cpp
-    src/coreui/presentationaccessibility.cpp
-    src/coreui/presentationsurface.cpp
-    src/coreui/presentationsurface_list.cpp
-    src/coreui/presentationsurface_avatar.cpp
-    src/coreui/presentationsurface_nodes.cpp
-    src/coreui/presentationsurface_update.cpp
-    src/coreui/presentationsurface_qr.cpp)
+    tests/presentation_pinned_actions_test.cpp)
 target_include_directories(presentation_pinned_actions_test PRIVATE
     src ${QRENCODE_INCLUDE_DIRS})
 target_link_directories(presentation_pinned_actions_test PRIVATE
@@ -506,15 +482,7 @@ endforeach()
 # PresentationSurface and stays alive so tests/atspi/ can read the live bus.
 # Not an add_test target — tests/atspi/run-tests.sh drives it under Xvfb.
 add_executable(atspi_fixture_probe
-    tests/atspi_fixture_probe.cpp
-    src/coreui/navigationicons.cpp
-    src/coreui/presentationaccessibility.cpp
-    src/coreui/presentationsurface.cpp
-    src/coreui/presentationsurface_list.cpp
-    src/coreui/presentationsurface_avatar.cpp
-    src/coreui/presentationsurface_nodes.cpp
-    src/coreui/presentationsurface_update.cpp
-    src/coreui/presentationsurface_qr.cpp)
+    tests/atspi_fixture_probe.cpp)
 target_include_directories(atspi_fixture_probe PRIVATE
     src ${QRENCODE_INCLUDE_DIRS})
 target_link_directories(atspi_fixture_probe PRIVATE

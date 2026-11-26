@@ -36,6 +36,7 @@ void QtDisplayHost::resetStatusItem() {
 }
 
 void QtDisplayHost::resetPresentation() {
+    m_cameraPreviewId.clear();
     ++m_generation;
     delete m_celebration;
     resetPermissionPrompt();

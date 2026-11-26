@@ -73,6 +73,7 @@ private:
     qint64 m_menuRevision = -1;
     StatusItemTray *m_statusItem = nullptr;
     QString m_statusSurface;
+    QString m_cameraPreviewId;
     qint64 m_statusRevision = -1;
     quint64 m_generation = 0;
     PermissionPrompt *m_permissionPrompt = nullptr;

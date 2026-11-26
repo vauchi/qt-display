@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "displayhost.h"
+#include "camerapreview.h"
 #include "applicationmenubar.h"
 #include "navigationsidebar.h"
 #include "presentationsurface.h"
@@ -61,6 +62,11 @@ void QtDisplayHost::render(const QJsonArray &commands) {
         }
         if (pickLegacyFile(value)) continue;
         const auto command = value.toObject();
+        if (command.contains("CameraViewport")) {
+            const auto id = command.value("CameraViewport").toObject().value("preview_id");
+            if (id.isString()) m_cameraPreviewId = id.toString();
+            continue;
+        }
         // Owner decision #1073: prepared QR nodes are authoritative; one-shot output is terminal-only.
         if (command.contains("QrDisplay") || command.contains("EmitDocument")
             || command.contains("FinishInvocation")) continue;
@@ -127,6 +133,8 @@ void QtDisplayHost::render(const QJsonArray &commands) {
         }
     }
     if (changed) renderPresentation();
+    for (auto *preview : findChildren<CameraPreview *>())
+        preview->setPreviewId(m_cameraPreviewId);
     snapshotIfAsked();
 }
 

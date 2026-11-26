@@ -30,7 +30,13 @@ fn main() {
             .display()
             .to_string()
     });
+    let camera_preview = std::env::var_os("CARGO_FEATURE_CAMERA_PREVIEW").is_some()
+        && std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux");
     let built = cmake::Config::new(&repo)
+        .define(
+            "VAUCHI_CAMERA_PREVIEW",
+            if camera_preview { "ON" } else { "OFF" },
+        )
         .define("VAUCHI_PERMISSION_TESTS", "OFF")
         .define("VAUCHI_TOKENS_INCLUDE", &tokens)
         .build_target("qt_display")
@@ -48,6 +54,9 @@ fn main() {
         "Qt6Network",
         "libqrencode",
     ];
+    if camera_preview {
+        modules.push("libpipewire-0.3");
+    }
     if Command::new("pkg-config")
         .args(["--exists", "Qt6DBus"])
         .status()

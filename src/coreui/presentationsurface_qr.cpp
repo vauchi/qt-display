@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "presentationsurface.h"
+#include "camerapreview.h"
 #include "presentationsurface_qr.h"
 
 #include <QJsonArray>
@@ -104,6 +105,9 @@ QWidget *PresentationSurface::renderQr(const QJsonObject &payload) {
 
     if (payload.value(QStringLiteral("purpose")).toString()
         == QStringLiteral("capture")) {
+        auto *preview = new CameraPreview;
+        applyAccessibility(preview, accessibility);
+        layout->addWidget(preview);
         auto *input = new QLineEdit;
         const QString binding =
             payload.value(QStringLiteral("id")).toString();
