@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Mattia Egloff <mattia.egloff@pm.me>
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! The Qt display shell behind four calls (ADR-078 step 2.2, D1 B).
+//! The Qt display shell's native API (ADR-078 step 2.2, D1 B).
 //!
 //! The app owns the engine and the main thread: [`run`] hands the thread
 //! to Qt until [`stop`] or the window closes, [`render`] posts a batch of

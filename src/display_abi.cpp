@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Mattia Egloff <mattia.egloff@pm.me>
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The three-call C ABI of the Qt display shell (include/qt_display.h).
+// The C ABI of the Qt display shell (include/qt_display.h).
 // The host lives on the GUI thread; command batches cross by queued delivery.
 #include "qt_display.h"
 
