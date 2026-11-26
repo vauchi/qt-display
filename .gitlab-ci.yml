@@ -5,8 +5,8 @@ include:
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
   - project: 'vauchi/scripts'
-    # Immutable SHA carrying the cppcheck template (private#1262).
-    ref: 241b058b3127118f71efd9d15ce767545754f26f
+    # Immutable tag carrying the cppcheck template (private#1262).
+    ref: ci-templates-v2026.11.26
     file:
       - '/ci-templates/design-drift.yml'
       - '/ci-templates/parser-parity.yml'
@@ -22,7 +22,7 @@ include:
       - '/ci-templates/auto-tag.yml'
 
 variables:
-  VAUCHI_SCRIPTS_REF: "241b058b3127118f71efd9d15ce767545754f26f"
+  VAUCHI_SCRIPTS_REF: "ci-templates-v2026.11.26"
   SAST_EXCLUDED_PATHS: "build/"
   SECRET_DETECTION_EXCLUDED_PATHS: "build/"
   SAST_ANALYZER_IMAGE_TAG: "5"
@@ -357,7 +357,7 @@ check:parser-parity:
     FRONTEND_NAME: "linux-qt"
     PARSER_FILE: "src/coreui"
     PARSER_PROTOCOL: "presentation"
-    PARSER_SCRIPT_REF: "ci-templates-v2026.11.17"
+    PARSER_SCRIPT_REF: "ci-templates-v2026.11.26"
     CORE_PIN_FILE: "core-ref"
     CORE_PIN_KIND: "ref-file"
     CONTRACT_PIN_FILE: "contract-ref"
@@ -478,7 +478,7 @@ check:pictogram-copies-current:
 lint:domain-calls:
   extends: .domain-calls-job
   variables:
-    VAUCHI_SCRIPTS_REF: "241b058b3127118f71efd9d15ce767545754f26f"
+    VAUCHI_SCRIPTS_REF: "ci-templates-v2026.11.26"
 
 # Advisory cppcheck scan (private#1262): warning/performance/portability
 # over the C++ display sources. windows-hw joins when its first C++ port
