@@ -6,12 +6,14 @@
 #include "camerapreview.h"
 #include <utility>
 #include <cstring>
+#ifdef Q_OS_UNIX
+#include <unistd.h>
+#endif
 
 #ifdef VAUCHI_PIPEWIRE
 #include <pipewire/pipewire.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/buffers.h>
-#include <unistd.h>
 
 struct PreviewReader::Impl {
     explicit Impl(QtDisplayPreviewSource source) : binding(source.node_id, source.serial) {
@@ -157,7 +159,13 @@ std::optional<QImage> PreviewReader::poll() {
 }
 #else
 struct PreviewReader::Impl {};
-PreviewReader::PreviewReader(QtDisplayPreviewSource) : m_impl(std::make_unique<Impl>()) {}
+PreviewReader::PreviewReader(QtDisplayPreviewSource source) : m_impl(std::make_unique<Impl>()) {
+#ifdef Q_OS_UNIX
+    if (source.remote_fd >= 0) close(source.remote_fd);
+#else
+    Q_UNUSED(source);
+#endif
+}
 PreviewReader::~PreviewReader() = default;
 bool PreviewReader::closed() const { return true; }
 std::optional<QImage> PreviewReader::poll() { return {}; }

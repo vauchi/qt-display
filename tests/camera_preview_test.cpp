@@ -3,10 +3,17 @@
 
 #include "coreui/camerapreview.h"
 #include "coreui/previewbinding.h"
+#include "coreui/previewreader.h"
 #include <QApplication>
 #include <QColor>
 #include <cassert>
 #include <limits>
+#ifdef Q_OS_UNIX
+#include <cerrno>
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
 
 // @internal — the display consumes only its app's prepared preview stream.
 int main(int argc, char **argv) {
@@ -43,6 +50,19 @@ int main(int argc, char **argv) {
     assert(!invalid.observe(UINT32_MAX, "", "Video/Source", "1"));
     PreviewBinding zero(42, 0);
     assert(!zero.observe(42, "", "Video/Source", "0"));
+
+#ifdef Q_OS_UNIX
+    for (const auto id : {uint32_t(42), UINT32_MAX}) {
+        int sockets[2];
+        assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+        {
+            PreviewReader reader(QtDisplayPreviewSource{id, 1042, sockets[0]});
+        }
+        assert(fcntl(sockets[0], F_GETFD) == -1);
+        assert(errno == EBADF);
+        close(sockets[1]);
+    }
+#endif
 
     for (int padding = 0; padding < 8; ++padding) {
         for (int offset = 0; offset < 8; ++offset) {
