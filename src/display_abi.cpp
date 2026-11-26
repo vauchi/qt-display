@@ -90,7 +90,16 @@ extern "C" int qt_display_start_with_camera(int argc, char **argv,
     g_running = false;
     g_host = nullptr;
     CameraPreview::setSourceResolver(nullptr, nullptr);
+    CameraPreview::setFrameResolver(nullptr, nullptr);
     return rc;
+}
+
+extern "C" int qt_display_start_with_native_preview(int argc, char **argv,
+                                                     QtDisplayEventCallback on_event,
+                                                     QtDisplayPollCallback on_poll,
+                                                     QtDisplayFrameCallback on_frame, void *user_data) {
+    CameraPreview::setFrameResolver(on_frame, user_data);
+    return qt_display_start_with_camera(argc, argv, on_event, on_poll, nullptr, user_data);
 }
 
 extern "C" int qt_display_render(const char *commands_json, size_t len) {

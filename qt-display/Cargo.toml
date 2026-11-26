@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 [package]
 name = "qt-display"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 description = "The Qt display shell of Vauchi for linux-app (ADR-078 step 2.2, D1 B)"
@@ -33,4 +33,9 @@ harness = false
 [[test]]
 name = "camera_resolver"
 path = "tests/camera_resolver.rs"
+harness = false
+
+[[test]]
+name = "native_resolver"
+path = "tests/native_resolver.rs"
 harness = false

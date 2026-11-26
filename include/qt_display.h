@@ -32,6 +32,18 @@ typedef struct QtDisplayPreviewSource {
 typedef int (*QtDisplayPreviewCallback)(const char *preview_id,
                                        QtDisplayPreviewSource *source, void *user_data);
 
+typedef struct QtDisplayFrameSource {
+    uint64_t generation;
+    int frame_fd;
+} QtDisplayFrameSource;
+
+// 0 absent, 1 new resource (FD ownership transfers), 2 unchanged, -1 failed.
+typedef int (*QtDisplayFrameCallback)(const char *preview_id, uint64_t previous_generation,
+                                     QtDisplayFrameSource *source, void *user_data);
+int qt_display_start_with_native_preview(int argc, char **argv, QtDisplayEventCallback on_event,
+                                        QtDisplayPollCallback on_poll, QtDisplayFrameCallback on_frame,
+                                        void *user_data);
+
 int qt_display_start_with_camera(int argc, char **argv, QtDisplayEventCallback on_event,
                                 QtDisplayPollCallback on_poll, QtDisplayPreviewCallback on_preview,
                                 void *user_data);

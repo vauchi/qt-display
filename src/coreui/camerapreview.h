@@ -9,6 +9,7 @@
 #include "qt_display.h"
 
 class PreviewReader;
+class NativePreviewReader;
 class QTimer;
 class QShowEvent;
 class QHideEvent;
@@ -23,6 +24,7 @@ public:
     QString previewId() const { return m_previewId; }
     static QString nodeName(const QString &previewId);
     static void setSourceResolver(QtDisplayPreviewCallback callback, void *userData);
+    static void setFrameResolver(QtDisplayFrameCallback callback, void *userData);
     static QImage frameFromRgba(const QByteArray &bytes, uint32_t width, uint32_t height,
                                 int stride, uint32_t offset);
     QSize sizeHint() const override;
@@ -33,9 +35,12 @@ protected:
     void hideEvent(QHideEvent *event) override;
 private:
     void tick();
+    void tickNative();
     void showFrame();
     QString m_previewId;
     std::unique_ptr<PreviewReader> m_reader;
+    std::unique_ptr<NativePreviewReader> m_nativeReader;
+    uint64_t m_generation = 0;
     QImage m_frame;
     QTimer *m_timer;
 };

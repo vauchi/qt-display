@@ -3,20 +3,31 @@
 
 #include "camerapreview.h"
 #include "previewreader.h"
+#include "nativepreviewreader.h"
 #include <QCoreApplication>
 #include <QHideEvent>
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QTimer>
+#ifdef Q_OS_UNIX
+#include <unistd.h>
+#endif
 
 namespace {
 QtDisplayPreviewCallback resolver = nullptr;
 void *resolverData = nullptr;
+QtDisplayFrameCallback frameResolver = nullptr;
+void *frameResolverData = nullptr;
 }
 
 void CameraPreview::setSourceResolver(QtDisplayPreviewCallback callback, void *userData) {
     resolver = callback;
     resolverData = userData;
+}
+
+void CameraPreview::setFrameResolver(QtDisplayFrameCallback callback, void *userData) {
+    frameResolver = callback;
+    frameResolverData = userData;
 }
 
 CameraPreview::CameraPreview(QWidget *parent) : QLabel(parent), m_timer(new QTimer(this)) {
@@ -52,6 +63,8 @@ void CameraPreview::setPreviewId(const QString &id) {
     if (m_previewId == next) return;
     m_previewId = next;
     m_reader.reset();
+    m_nativeReader.reset();
+    m_generation = 0;
     m_frame = {};
     clear();
     updateGeometry();
@@ -61,6 +74,7 @@ void CameraPreview::setPreviewId(const QString &id) {
 }
 
 void CameraPreview::tick() {
+    if (frameResolver) { tickNative(); return; }
     if (!m_reader && resolver && !m_previewId.isEmpty()) {
         QtDisplayPreviewSource source{UINT32_MAX, 0, -1};
         const auto id = m_previewId.toUtf8();
@@ -86,6 +100,40 @@ void CameraPreview::tick() {
     }
 }
 
+void CameraPreview::tickNative() {
+    QtDisplayFrameSource source{0, -1};
+    const auto id = m_previewId.toUtf8();
+    const int result = frameResolver(id.constData(), m_generation, &source, frameResolverData);
+    if (result == 1 && source.generation > 0 && source.generation != m_generation) {
+        m_nativeReader = std::make_unique<NativePreviewReader>(source.frame_fd);
+        source.frame_fd = -1;
+        m_generation = source.generation;
+        m_frame = {};
+        clear();
+    } else if (result != 2) {
+        m_nativeReader.reset();
+        m_generation = 0;
+        m_frame = {};
+        clear();
+    }
+#ifdef Q_OS_UNIX
+    if (source.frame_fd >= 0) ::close(source.frame_fd);
+#endif
+    if (m_nativeReader) {
+        if (auto frame = m_nativeReader->poll()) {
+            m_frame = *frame;
+            showFrame();
+            updateGeometry();
+        }
+        if (m_nativeReader->closed()) {
+            m_nativeReader.reset();
+            m_frame = {};
+            clear();
+            updateGeometry();
+        }
+    }
+}
+
 QSize CameraPreview::sizeHint() const { return m_frame.size(); }
 
 void CameraPreview::showFrame() {
@@ -108,6 +156,8 @@ void CameraPreview::showEvent(QShowEvent *event) {
 void CameraPreview::hideEvent(QHideEvent *event) {
     m_timer->stop();
     m_reader.reset();
+    m_nativeReader.reset();
+    m_generation = 0;
     m_frame = {};
     clear();
     QLabel::hideEvent(event);

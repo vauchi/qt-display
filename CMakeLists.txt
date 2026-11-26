@@ -49,6 +49,7 @@ set(QT_DISPLAY_SOURCES
     src/coreui/camerapreview.cpp
     src/coreui/camerapreview.h
     src/coreui/previewreader.cpp
+    src/coreui/nativepreviewreader.cpp
     src/coreui/displayhost_feedback.cpp
     src/coreui/displayhost_reset.cpp
     src/coreui/displayhost_native_effects.cpp
@@ -103,6 +104,14 @@ target_include_directories(camera_preview_test PRIVATE src)
 target_link_libraries(camera_preview_test PRIVATE qt_display)
 target_compile_options(camera_preview_test PRIVATE -UNDEBUG)
 add_test(NAME camera_preview COMMAND camera_preview_test)
+if(UNIX)
+    add_executable(native_preview_test tests/native_preview_test.cpp)
+    target_include_directories(native_preview_test PRIVATE src)
+    target_link_libraries(native_preview_test PRIVATE qt_display)
+    target_compile_options(native_preview_test PRIVATE -UNDEBUG)
+    add_test(NAME native_preview COMMAND native_preview_test)
+    set_tests_properties(native_preview PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
 set_tests_properties(camera_preview PROPERTIES TIMEOUT 30
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
