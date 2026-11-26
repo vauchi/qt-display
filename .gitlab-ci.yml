@@ -64,9 +64,23 @@ workflow:
 default:
   interruptible: true
 
+.camera-sdk:
+  before_script:
+    - |
+      pkg-config --atleast-version=0.3.77 libpipewire-0.3 ||
+        flock /tmp/vauchi-camera-sdk.lock sh -ec '
+          if ! pkg-config --atleast-version=0.3.77 libpipewire-0.3; then
+            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq
+            sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq --no-install-recommends libpipewire-0.3-dev libclang-dev
+          fi
+          pkg-config --atleast-version=0.3.77 libpipewire-0.3
+        '
+
 build:qt:
   stage: build
   needs: []
+  before_script:
+    - !reference [.camera-sdk, before_script]
   script:
     # Tokens.h is generated from the themes repo; nothing guarantees a
     # ../themes sibling in the runner's build slot, so fetch and generate
@@ -130,6 +144,8 @@ test:rust-wrapper:
   timeout: 15m
   variables:
     CARGO_TARGET_DIR: "${CI_PROJECT_DIR}/qt-display/target"
+  before_script:
+    - !reference [.camera-sdk, before_script]
   script:
     - mkdir -p library-check
     - git archive --output=library-check.tar HEAD
@@ -147,6 +163,8 @@ test:rust-wrapper:
 # CMakeLists.txt already supports -DCOVERAGE=ON for gcov/lcov flags.
 # Uses gcovr for Cobertura conversion and pushes metrics to Grafana Pushgateway.
 coverage:unit:
+  before_script:
+    - !reference [.camera-sdk, before_script]
   stage: test
   needs: []
   variables:
