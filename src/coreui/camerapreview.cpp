@@ -9,6 +9,16 @@
 #include <QShowEvent>
 #include <QTimer>
 
+namespace {
+QtDisplayPreviewCallback resolver = nullptr;
+void *resolverData = nullptr;
+}
+
+void CameraPreview::setSourceResolver(QtDisplayPreviewCallback callback, void *userData) {
+    resolver = callback;
+    resolverData = userData;
+}
+
 CameraPreview::CameraPreview(QWidget *parent) : QLabel(parent), m_timer(new QTimer(this)) {
     setObjectName("camera-preview");
     setAlignment(Qt::AlignCenter);
@@ -46,12 +56,21 @@ void CameraPreview::setPreviewId(const QString &id) {
     clear();
     updateGeometry();
     if (isVisible() && !m_previewId.isEmpty()) {
-        m_reader = std::make_unique<PreviewReader>(nodeName(m_previewId));
         m_timer->start();
     }
 }
 
 void CameraPreview::tick() {
+    if (!m_reader && resolver && !m_previewId.isEmpty()) {
+        QtDisplayPreviewSource source{UINT32_MAX, 0, -1};
+        const auto id = m_previewId.toUtf8();
+        const auto result = resolver(id.constData(), &source, resolverData);
+        if (result == 1) {
+            m_reader = std::make_unique<PreviewReader>(source);
+        } else if (result != 0) {
+            m_timer->stop();
+        }
+    }
     if (!m_reader) return;
     if (auto frame = m_reader->poll()) {
         m_frame = *frame;
@@ -82,7 +101,6 @@ void CameraPreview::resizeEvent(QResizeEvent *event) {
 void CameraPreview::showEvent(QShowEvent *event) {
     QLabel::showEvent(event);
     if (!m_previewId.isEmpty() && !m_reader) {
-        m_reader = std::make_unique<PreviewReader>(nodeName(m_previewId));
         m_timer->start();
     }
 }

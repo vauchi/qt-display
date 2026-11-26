@@ -5,20 +5,32 @@
 #include "previewbinding.h"
 #include "camerapreview.h"
 #include <utility>
+#include <cstring>
 
 #ifdef VAUCHI_PIPEWIRE
 #include <pipewire/pipewire.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/buffers.h>
+#include <unistd.h>
 
 struct PreviewReader::Impl {
-    explicit Impl(const QString &name) : binding(name) {
+    explicit Impl(QtDisplayPreviewSource source) : binding(source.node_id, source.serial) {
+        struct Remote {
+            int fd;
+            ~Remote() { if (fd >= 0) close(fd); }
+        } remote{source.remote_fd};
+        if (source.node_id == UINT32_MAX || source.serial == 0 || source.remote_fd < -1) { failed = true; return; }
         pw_init(nullptr, nullptr);
         loop = pw_main_loop_new(nullptr);
         if (!loop) { failed = true; return; }
         context = pw_context_new(pw_main_loop_get_loop(loop), nullptr, 0);
         if (!context) { failed = true; return; }
-        core = pw_context_connect(context, nullptr, 0);
+        if (remote.fd >= 0) {
+            // connect_fd takes ownership on both success and failure.
+            core = pw_context_connect_fd(context, std::exchange(remote.fd, -1), nullptr, 0);
+        } else {
+            core = pw_context_connect(context, nullptr, 0);
+        }
         if (!core) { failed = true; return; }
         registry = pw_core_get_registry(core, PW_VERSION_REGISTRY, 0);
         if (!registry) { failed = true; return; }
@@ -38,9 +50,9 @@ struct PreviewReader::Impl {
         if (context) pw_context_destroy(context);
         if (loop) pw_main_loop_destroy(loop);
     }
-    static void global(void *data, uint32_t id, uint32_t, const char *, uint32_t, const spa_dict *props) {
+    static void global(void *data, uint32_t id, uint32_t, const char *type, uint32_t, const spa_dict *props) {
         auto &self = *static_cast<Impl *>(data);
-        if (!props) return;
+        if (!props || !type || std::strcmp(type, PW_TYPE_INTERFACE_Node) != 0) return;
         const auto name = spa_dict_lookup(props, PW_KEY_NODE_NAME);
         const auto media = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
         const auto serial = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL);
@@ -129,7 +141,7 @@ struct PreviewReader::Impl {
     std::optional<QImage> latest;
 };
 
-PreviewReader::PreviewReader(const QString &name) : m_impl(std::make_unique<Impl>(name)) {}
+PreviewReader::PreviewReader(QtDisplayPreviewSource source) : m_impl(std::make_unique<Impl>(source)) {}
 PreviewReader::~PreviewReader() = default;
 bool PreviewReader::closed() const { return m_impl->failed || m_impl->binding.retired(); }
 std::optional<QImage> PreviewReader::poll() {
@@ -145,7 +157,7 @@ std::optional<QImage> PreviewReader::poll() {
 }
 #else
 struct PreviewReader::Impl {};
-PreviewReader::PreviewReader(const QString &) : m_impl(std::make_unique<Impl>()) {}
+PreviewReader::PreviewReader(QtDisplayPreviewSource) : m_impl(std::make_unique<Impl>()) {}
 PreviewReader::~PreviewReader() = default;
 bool PreviewReader::closed() const { return true; }
 std::optional<QImage> PreviewReader::poll() { return {}; }

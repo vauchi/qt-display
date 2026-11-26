@@ -6,6 +6,7 @@
 #include <QLabel>
 #include <memory>
 #include <cstdint>
+#include "qt_display.h"
 
 class PreviewReader;
 class QTimer;
@@ -21,6 +22,7 @@ public:
     void setPreviewId(const QString &id);
     QString previewId() const { return m_previewId; }
     static QString nodeName(const QString &previewId);
+    static void setSourceResolver(QtDisplayPreviewCallback callback, void *userData);
     static QImage frameFromRgba(const QByteArray &bytes, uint32_t width, uint32_t height,
                                 int stride, uint32_t offset);
     QSize sizeHint() const override;

@@ -8,6 +8,7 @@
 #define QT_DISPLAY_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,6 +19,22 @@ typedef void (*QtDisplayEventCallback)(const char *event_json, void *user_data);
 
 // Runs on the GUI thread so the app can drain its hardware and engine inboxes.
 typedef void (*QtDisplayPollCallback)(void *user_data);
+
+typedef struct QtDisplayPreviewSource {
+    uint32_t node_id;
+    uint64_t serial;
+    int remote_fd;
+} QtDisplayPreviewSource;
+
+// GUI-thread lookup of an app-owned stream: 1 ready, 0 pending, -1 failed.
+// A ready remote_fd transfers ownership to the display; -1 uses the native
+// connection. Each consumer requires a fresh, unconnected PipeWire remote.
+typedef int (*QtDisplayPreviewCallback)(const char *preview_id,
+                                       QtDisplayPreviewSource *source, void *user_data);
+
+int qt_display_start_with_camera(int argc, char **argv, QtDisplayEventCallback on_event,
+                                QtDisplayPollCallback on_poll, QtDisplayPreviewCallback on_preview,
+                                void *user_data);
 
 
 // Runs the Qt event loop on the calling thread until qt_display_stop or

@@ -6,10 +6,11 @@
 #include <QString>
 #include <memory>
 #include <optional>
+#include "qt_display.h"
 
 class PreviewReader {
 public:
-    explicit PreviewReader(const QString &nodeName);
+    explicit PreviewReader(QtDisplayPreviewSource source);
     ~PreviewReader();
     std::optional<QImage> poll();
     bool closed() const;

@@ -10,17 +10,19 @@
 class PreviewBinding {
 public:
     explicit PreviewBinding(QString name) : m_name(std::move(name)) {}
+    PreviewBinding(uint32_t id, uint64_t serial) : m_expectedId(id), m_expectedSerial(serial), m_exact(true) {}
     bool observe(uint32_t id, const QString &name, const QString &mediaClass, const QString &serial) {
         bool valid = false;
-        serial.toULongLong(&valid);
-        if (m_retired || m_id != invalid || name != m_name || mediaClass != "Video/Source" || !valid)
+        const auto number = serial.toULongLong(&valid);
+        const bool matches = m_exact ? id == m_expectedId && number == m_expectedSerial : name == m_name;
+        if (m_retired || m_id != invalid || id == invalid || !matches || mediaClass != "Video/Source" || !valid || number == 0)
             return false;
         m_id = id;
         m_serial = serial;
         return true;
     }
     void remove(uint32_t id) {
-        if (m_id == id) {
+        if (m_id != invalid && m_id == id) {
             m_id = invalid;
             m_serial.clear();
             m_retired = true;
@@ -34,5 +36,8 @@ private:
     QString m_name;
     QString m_serial;
     uint32_t m_id = invalid;
+    uint32_t m_expectedId = invalid;
+    uint64_t m_expectedSerial = 0;
+    bool m_exact = false;
     bool m_retired = false;
 };

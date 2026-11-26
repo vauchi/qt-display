@@ -6,6 +6,7 @@
 #include "qt_display.h"
 
 #include "coreui/displayhost.h"
+#include "coreui/camerapreview.h"
 #include "coreui/thememanager.h"
 #include "platform/deeplink.h"
 
@@ -44,7 +45,15 @@ extern "C" int qt_display_start(int argc, char **argv,
 extern "C" int qt_display_start_with_poll(int argc, char **argv,
                                           QtDisplayEventCallback on_event,
                                           QtDisplayPollCallback on_poll, void *user_data) {
+    return qt_display_start_with_camera(argc, argv, on_event, on_poll, nullptr, user_data);
+}
+
+extern "C" int qt_display_start_with_camera(int argc, char **argv,
+                                            QtDisplayEventCallback on_event,
+                                            QtDisplayPollCallback on_poll,
+                                            QtDisplayPreviewCallback on_preview, void *user_data) {
     QApplication app(argc, argv);
+    CameraPreview::setSourceResolver(on_preview, user_data);
     QCoreApplication::setApplicationName(QStringLiteral("vauchi"));
     QCoreApplication::setOrganizationName(QStringLiteral("vauchi"));
     QGuiApplication::setDesktopFileName(QStringLiteral("app.vauchi.Vauchi"));
@@ -80,6 +89,7 @@ extern "C" int qt_display_start_with_poll(int argc, char **argv,
     const int rc = app.exec();
     g_running = false;
     g_host = nullptr;
+    CameraPreview::setSourceResolver(nullptr, nullptr);
     return rc;
 }
 

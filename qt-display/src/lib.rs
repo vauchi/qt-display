@@ -8,15 +8,26 @@
 //! back as a JSON `Event` through the callback given to [`run`].
 use std::ffi::{c_char, c_int, c_void, CStr, CString};
 
+mod camera;
+#[cfg(target_os = "linux")]
+pub use camera::{PreviewSource, SourceResolver};
+
 mod ffi {
     use super::*;
     pub type EventCallback = unsafe extern "C" fn(*const c_char, *mut c_void);
     extern "C" {
-        pub fn qt_display_start_with_poll(
+        pub fn qt_display_start_with_camera(
             argc: c_int,
             argv: *mut *mut c_char,
             on_event: EventCallback,
             on_poll: Option<unsafe extern "C" fn(*mut c_void)>,
+            on_preview: Option<
+                unsafe extern "C" fn(
+                    *const c_char,
+                    *mut camera::NativeSource,
+                    *mut c_void,
+                ) -> c_int,
+            >,
             user_data: *mut c_void,
         ) -> c_int;
         pub fn qt_display_render(commands_json: *const c_char, len: usize) -> c_int;
@@ -34,6 +45,8 @@ pub type PollSink = Box<dyn FnMut()>;
 struct Callbacks {
     event: EventSink,
     poll: Option<PollSink>,
+    #[cfg(target_os = "linux")]
+    preview: Option<SourceResolver>,
 }
 
 unsafe extern "C" fn trampoline(event_json: *const c_char, user_data: *mut c_void) {
@@ -54,16 +67,34 @@ unsafe extern "C" fn poll_trampoline(user_data: *mut c_void) {
 
 /// Runs the shell on the calling thread; returns Qt's exit code.
 pub fn run(args: &[String], on_event: EventSink) -> i32 {
-    run_callbacks(args, on_event, None)
+    run_callbacks(args, on_event, None, None)
 }
 
 /// Runs Qt with a GUI-thread host poll, initially and every 50 ms.
 /// The poll may render batches and stop the loop; it must not block the GUI.
 pub fn run_with_poll(args: &[String], on_event: EventSink, on_poll: PollSink) -> i32 {
-    run_callbacks(args, on_event, Some(on_poll))
+    run_callbacks(args, on_event, Some(on_poll), None)
 }
 
-fn run_callbacks(args: &[String], on_event: EventSink, on_poll: Option<PollSink>) -> i32 {
+#[cfg(target_os = "linux")]
+pub fn run_with_camera(
+    args: &[String],
+    on_event: EventSink,
+    on_poll: PollSink,
+    on_preview: SourceResolver,
+) -> i32 {
+    run_callbacks(args, on_event, Some(on_poll), Some(on_preview))
+}
+
+#[cfg(not(target_os = "linux"))]
+type SourceResolver = ();
+
+fn run_callbacks(
+    args: &[String],
+    on_event: EventSink,
+    on_poll: Option<PollSink>,
+    on_preview: Option<SourceResolver>,
+) -> i32 {
     let mut argv: Vec<CString> = args
         .iter()
         .map(|a| CString::new(a.as_str()).expect("argument without NUL"))
@@ -76,14 +107,27 @@ fn run_callbacks(args: &[String], on_event: EventSink, on_poll: Option<PollSink>
     let mut callbacks = Callbacks {
         event: on_event,
         poll: on_poll,
+        #[cfg(target_os = "linux")]
+        preview: on_preview,
+    };
+    #[cfg(target_os = "linux")]
+    let preview_callback = callbacks
+        .preview
+        .as_ref()
+        .map(|_| camera::resolve as unsafe extern "C" fn(_, _, _) -> _);
+    #[cfg(not(target_os = "linux"))]
+    let preview_callback = {
+        let _ = on_preview;
+        None
     };
     // SAFETY: argv and callbacks outlive Qt's loop; callbacks stay on this thread.
     unsafe {
-        ffi::qt_display_start_with_poll(
+        ffi::qt_display_start_with_camera(
             argv_ptrs.len() as c_int,
             argv_ptrs.as_mut_ptr(),
             trampoline,
             poll_callback,
+            preview_callback,
             &mut callbacks as *mut Callbacks as *mut c_void,
         )
     }

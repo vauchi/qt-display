@@ -29,3 +29,8 @@ harness = false
 name = "hand_off"
 path = "tests/hand_off.rs"
 harness = false
+
+[[test]]
+name = "camera_resolver"
+path = "tests/camera_resolver.rs"
+harness = false

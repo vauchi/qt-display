@@ -8,6 +8,12 @@
 using namespace display_test;
 
 namespace {
+QString requestedPreview;
+int resolvePreview(const char *id, QtDisplayPreviewSource *source, void *) {
+    requestedPreview = QString::fromUtf8(id);
+    assert(source->remote_fd == -1);
+    return 0;
+}
 QJsonObject viewport(const QString &id) {
     return {{"CameraViewport", QJsonObject{{"preview_id", id}}}};
 }
@@ -33,7 +39,7 @@ int main(int argc, char **argv) {
             inputs.first()->setText("vauchi://exchange/manual");
             events = {};
             QMetaObject::invokeMethod(inputs.first(), "returnPressed", Qt::DirectConnection);
-        }},
+        }, [] { return requestedPreview == "camera-42"; }},
         {{}, [] {
             assert((events == QJsonArray{
                 event("SurfaceActivated", {{"surface_id", "first"}}),
@@ -42,14 +48,14 @@ int main(int argc, char **argv) {
         }, [] { return events.size() == 2; }},
         {{viewport("camera-43")}, [] {
             assert(window()->findChildren<CameraPreview *>().first()->previewId() == "camera-43");
-        }},
+        }, [] { return requestedPreview == "camera-43"; }},
         {{"ResetApplication", surface("first", 1, "Scan", {qr}), profile("first")}, [] {
             const auto previews = window()->findChildren<CameraPreview *>();
             assert(previews.size() == 1);
             assert(previews.first()->previewId().isEmpty());
         }},
     };
-    const auto result = qt_display_start(argc, argv, receive, &events);
+    const auto result = qt_display_start_with_camera(argc, argv, receive, nullptr, resolvePreview, &events);
     assert(result == 0);
     return result;
 }
