@@ -27,6 +27,15 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Core Network Concurrent)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(QRENCODE REQUIRED libqrencode)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(VAUCHI_CAMERA_PREVIEW_DEFAULT ON)
+else()
+    set(VAUCHI_CAMERA_PREVIEW_DEFAULT OFF)
+endif()
+option(VAUCHI_CAMERA_PREVIEW "Render hardware-published PipeWire previews" ${VAUCHI_CAMERA_PREVIEW_DEFAULT})
+if(VAUCHI_CAMERA_PREVIEW)
+    pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3>=0.3.77)
+endif()
 
 find_package(Qt6 QUIET COMPONENTS DBus)
 
@@ -37,6 +46,9 @@ find_package(Qt6 QUIET COMPONENTS DBus)
 set(QT_DISPLAY_SOURCES
     src/display_abi.cpp
     src/coreui/displayhost.cpp
+    src/coreui/camerapreview.cpp
+    src/coreui/camerapreview.h
+    src/coreui/previewreader.cpp
     src/coreui/displayhost_feedback.cpp
     src/coreui/displayhost_reset.cpp
     src/coreui/displayhost_native_effects.cpp
@@ -73,6 +85,10 @@ target_compile_options(qt_display PRIVATE -fno-lto)
 target_include_directories(qt_display PUBLIC include PRIVATE src ${QRENCODE_INCLUDE_DIRS} ${VAUCHI_TOKENS_INCLUDE})
 target_link_directories(qt_display PUBLIC ${QRENCODE_LIBRARY_DIRS})
 target_link_libraries(qt_display PUBLIC Qt6::Widgets Qt6::Core Qt6::Concurrent Qt6::Network ${QRENCODE_LIBRARIES})
+if(VAUCHI_CAMERA_PREVIEW)
+    target_link_libraries(qt_display PUBLIC PkgConfig::PIPEWIRE)
+    target_compile_definitions(qt_display PRIVATE VAUCHI_PIPEWIRE)
+endif()
 
 option(VAUCHI_PERMISSION_PORTAL "Enable the camera permission portal" ON)
 if(Qt6DBus_FOUND AND VAUCHI_PERMISSION_PORTAL)
@@ -81,6 +97,14 @@ if(Qt6DBus_FOUND AND VAUCHI_PERMISSION_PORTAL)
 endif()
 
 enable_testing()
+
+add_executable(camera_preview_test tests/camera_preview_test.cpp)
+target_include_directories(camera_preview_test PRIVATE src)
+target_link_libraries(camera_preview_test PRIVATE qt_display)
+target_compile_options(camera_preview_test PRIVATE -UNDEBUG)
+add_test(NAME camera_preview COMMAND camera_preview_test)
+set_tests_properties(camera_preview PROPERTIES TIMEOUT 30
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(display_list_layout_test tests/display_list_layout_test.cpp)
 target_include_directories(display_list_layout_test PRIVATE src)
