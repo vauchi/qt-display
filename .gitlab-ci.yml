@@ -67,14 +67,14 @@ default:
 .camera-sdk:
   before_script:
     - |
-      pkg-config --atleast-version=0.3.77 libpipewire-0.3 ||
-        flock /tmp/vauchi-camera-sdk.lock sh -ec '
-          if ! pkg-config --atleast-version=0.3.77 libpipewire-0.3; then
-            sudo apt-get -o DPkg::Lock::Timeout=120 update -qq
-            sudo apt-get -o DPkg::Lock::Timeout=120 install -y -qq --no-install-recommends libpipewire-0.3-dev libclang-dev
-          fi
-          pkg-config --atleast-version=0.3.77 libpipewire-0.3
-        '
+      if ! pkg-config --atleast-version=0.3.77 libpipewire-0.3; then
+        curl --fail-with-body --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          "${CI_API_V4_URL}/projects/vauchi%2Fscripts/repository/files/scripts%2Fci%2Fprepare-pipewire-sdk.sh/raw?ref=c8decece5226d8981ce3cfb61ec33c4be0d0366b" \
+          -o .prepare-pipewire-sdk.sh
+        bash .prepare-pipewire-sdk.sh "${CI_PROJECT_DIR}/.camera-sdk"
+        . "${CI_PROJECT_DIR}/.camera-sdk/env.sh"
+      fi
+      pkg-config --atleast-version=0.3.77 libpipewire-0.3
 
 build:qt:
   stage: build
@@ -101,6 +101,8 @@ build:qt:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 test:unit:
+  before_script:
+    - !reference [.camera-sdk, before_script]
   stage: test
   needs: [build:qt]
   variables:
@@ -235,6 +237,7 @@ test:a11y:
     QT_ACCESSIBILITY: "1"
   before_script:
     - uv venv --system-site-packages .venv
+    - !reference [.camera-sdk, before_script]
     - source .venv/bin/activate
     - uv pip install --quiet -r tests/atspi/requirements.txt
   script:
@@ -259,6 +262,8 @@ test:a11y:
 # preserved alongside the rendered artifacts. qt_display_render draws them
 # on the qt_display library the apps assemble, without Core.
 test:screen-catalog:
+  before_script:
+    - !reference [.camera-sdk, before_script]
   stage: test
   needs: [build:qt]
   tags: [linux]
