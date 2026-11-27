@@ -6,4 +6,4 @@
 # against (contract:replay, test:screen-catalog, check:parser-parity). No
 # Core code is built or linked here. Core's release pipeline opens the
 # bump MR.
-v0.110.0
+v0.111.0
